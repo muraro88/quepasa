@@ -1,27 +1,53 @@
-# Build stage
-FROM golang:latest as builder
+# =================================================================
+# Estágio 1: Builder
+# - Usa uma imagem completa do Go para construir a aplicação.
+# - Instala dependências e compila o binário Go.
+# - Nomeamos este estágio como "builder".
+# =================================================================
+FROM golang:1.22-alpine AS builder
 
-WORKDIR /build
+# Instala as ferramentas de build necessárias.
+# 'git' e 'gcc' são necessários para compilar dependências com CGO.
+RUN apk add --no-cache git gcc libc-dev
 
-COPY /docker/docker-entrypoint.sh .
-COPY /src/ .
+# Define o diretório de trabalho dentro do contêiner.
+WORKDIR /app
 
-RUN chmod 755 docker-entrypoint.sh
-RUN sed -i 's/\r//' docker-entrypoint.sh
-RUN CGO_ENABLED=1 go build -o service main.go
+# Copia o código-fonte da sua pasta local 'src' para o contêiner.
+COPY ./src .
 
-# Run stage
-FROM golang:latest as src
+# Define a variável de ambiente CGO_ENABLED para este estágio de build.
+# Esta é uma forma mais explícita de corrigir o erro "go-sqlite3 requires cgo".
+ENV CGO_ENABLED=1
 
-# 1) install ffmpeg here
-RUN apt-get update
-RUN apt-get install -y --no-install-recommends ffmpeg
-RUN rm -rf /var/lib/apt/lists/*
+# Compila a aplicação Go.
+# Isso cria um executável estático chamado 'quepasa'.
+RUN go build -o /quepasa
 
-WORKDIR /opt/quepasa/
+# =================================================================
+# Estágio 2: Imagem Final
+# - Usa uma imagem mínima 'alpine' para um tamanho final pequeno.
+# - Copia apenas o binário compilado e os arquivos necessários.
+# =================================================================
+FROM alpine:3.18
 
-COPY --from=builder /build/. /builder/
-COPY --from=builder /build/docker-entrypoint.sh /
+# Instala apenas as dependências de execução.
+# 'ffmpeg' é uma dependência da aplicação.
+RUN apk add --no-cache ffmpeg
 
-ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["sh"]
+# Define o diretório de trabalho para a imagem final.
+WORKDIR /app
+
+# Copia o binário da aplicação compilado do estágio "builder".
+COPY --from=builder /quepasa .
+
+# Copia os scripts de migração do banco de dados.
+# Esta linha corrige o erro "no such file or directory" para as migrações.
+COPY ./docker/postgres/migrations ./migrations
+
+# Expõe a porta padrão da aplicação (boa prática).
+# O Railway irá sobrepor isso com a variável de ambiente PORT.
+EXPOSE 31000
+
+# Define o comando que será executado quando o contêiner iniciar.
+ENTRYPOINT ["/app/quepasa"]
