@@ -12,6 +12,10 @@ WORKDIR /app
 # Copia todo o código-fonte da pasta /src primeiro.
 COPY src/ ./
 
+# DEBUG: Lista todos os ficheiros para vermos a estrutura exata.
+# O output deste comando aparecerá nos "Build Logs".
+RUN ls -R /app
+
 # Agora que todo o código está presente, podemos baixar as dependências.
 RUN go mod download
 
