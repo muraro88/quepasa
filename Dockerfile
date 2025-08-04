@@ -1,32 +1,27 @@
-# =================================================================
-# Dockerfile Final e Simplificado (Estágio Único)
-# Este ficheiro cria uma imagem maior, mas é mais robusto para resolver o problema.
-# Ele deve estar localizado na RAIZ do seu projeto.
-# =================================================================
-FROM golang:1.23-bullseye
+# Build stage
+FROM golang:latest as builder
 
-# 1. Instala TODAS as ferramentas necessárias (build e execução) de uma só vez.
-RUN apt-get update && apt-get install -y git gcc libc-dev ffmpeg
+WORKDIR /build
 
-# 2. Define o diretório de trabalho para a aplicação.
-WORKDIR /app
+COPY /docker/docker-entrypoint.sh .
+COPY /src/ .
 
-# 3. Copia TODO o código-fonte da sua pasta local /src para dentro do contêiner.
-#    Isto resolve o erro de "no such file or directory" para o submódulo /api.
-COPY src/ ./
+RUN chmod 755 docker-entrypoint.sh
+RUN sed -i 's/\r//' docker-entrypoint.sh
+RUN go build -o service main.go
 
-# 4. Agora que todo o código está presente, podemos baixar as dependências.
-RUN go mod download
+# Run stage
+FROM golang:latest as src
 
-# 5. Ativa o CGO para que a compilação funcione.
-ENV CGO_ENABLED=1
+# 1) install ffmpeg here
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends ffmpeg
+RUN rm -rf /var/lib/apt/lists/*
 
-# 6. Compila a aplicação como um binário estático para maior compatibilidade.
-RUN go build -ldflags '-w -s -extldflags "-static"' -tags netgo,osuser -o /app/quepasa main.go
+WORKDIR /opt/quepasa/
 
-# 7. Expõe a porta da aplicação.
-EXPOSE 31000
+COPY --from=builder /build/. /builder/
+COPY --from=builder /build/docker-entrypoint.sh /
 
-# 8. Define o comando para iniciar a aplicação.
-#    Como o executável e as migrações estão ambos dentro de /app, tudo deve ser encontrado.
-ENTRYPOINT ["/app/quepasa"]
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["sh"]
