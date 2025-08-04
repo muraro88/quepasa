@@ -9,12 +9,12 @@ RUN apt-get update && apt-get install -y git gcc libc-dev
 
 WORKDIR /app
 
-# Copia os ficheiros de módulo. Os caminhos são diretos a partir da raiz.
-COPY src/go.mod src/go.sum ./
-RUN go mod download
-
-# Copia todo o código-fonte da pasta /src para o diretório de trabalho atual.
+# Copia todo o código-fonte da pasta /src primeiro.
+# Isto resolve o erro de "no such file or directory" para o submódulo /api.
 COPY src/ ./
+
+# Agora que todo o código está presente, podemos baixar as dependências.
+RUN go mod download
 
 # Ativa o CGO para compilar a dependência do SQLite.
 ENV CGO_ENABLED=1
@@ -36,7 +36,6 @@ WORKDIR /app
 COPY --from=builder /quepasa .
 
 # Copia as migrações da base de dados a partir da pasta /src/migrations.
-# ESTA É A LINHA QUE FOI CORRIGIDA.
 COPY src/migrations ./migrations
 
 # Expõe a porta.
