@@ -1,49 +1,32 @@
 # =================================================================
-# Estágio 1: Builder
-# Este Dockerfile deve estar localizado na RAIZ do projeto.
+# Dockerfile de Depuração (Estágio Único e Simplificado)
+# Este ficheiro cria uma imagem maior, mas é mais simples e robusto para encontrar o erro.
+# Ele deve estar localizado na RAIZ do seu projeto.
 # =================================================================
-FROM golang:1.23-bullseye AS builder
+FROM golang:1.23-bullseye
 
-# Instala as ferramentas de build necessárias
-RUN apt-get update && apt-get install -y git gcc libc-dev
+# 1. Instala TODAS as ferramentas necessárias (build e execução) de uma só vez.
+RUN apt-get update && apt-get install -y git gcc libc-dev ffmpeg
 
+# 2. Define o diretório de trabalho para a aplicação.
 WORKDIR /app
 
-# Copia todo o código-fonte da pasta /src primeiro.
+# 3. Copia TODO o código-fonte da sua pasta local /src para dentro do contêiner.
+#    Isto garante que a pasta /migrations será copiada para /app/migrations.
 COPY src/ ./
 
-# DEBUG: Lista todos os ficheiros para vermos a estrutura exata.
-# O output deste comando aparecerá nos "Build Logs".
-RUN ls -R /app
-
-# Agora que todo o código está presente, podemos baixar as dependências.
+# 4. Baixa as dependências do Go.
 RUN go mod download
 
-# Ativa o CGO para compilar a dependência do SQLite.
+# 5. Ativa o CGO para que a compilação funcione.
 ENV CGO_ENABLED=1
 
-# Compila a aplicação como um binário estático.
-RUN go build -ldflags '-w -s -extldflags "-static"' -tags netgo,osuser -o /quepasa main.go
+# 6. Compila a aplicação, colocando o executável dentro do diretório de trabalho /app.
+RUN go build -o /app/quepasa main.go
 
-# =================================================================
-# Estágio 2: Imagem Final
-# =================================================================
-FROM alpine:3.18
-
-# Instala as dependências de execução (ffmpeg).
-RUN apk add --no-cache ffmpeg
-
-WORKDIR /app
-
-# Copia o binário compilado do estágio anterior.
-COPY --from=builder /quepasa .
-
-# Copia as migrações da base de dados A PARTIR DO ESTÁGIO BUILDER.
-# ESTA É A LINHA QUE FOI CORRIGIDA.
-COPY --from=builder /app/migrations ./migrations
-
-# Expõe a porta.
+# 7. Expõe a porta da aplicação.
 EXPOSE 31000
 
-# Define o comando de arranque.
+# 8. Define o comando para iniciar a aplicação.
+#    Como o executável e as migrações estão ambos dentro de /app, tudo deve ser encontrado.
 ENTRYPOINT ["/app/quepasa"]
