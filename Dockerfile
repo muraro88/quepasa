@@ -35,8 +35,9 @@ WORKDIR /app
 # Copia o binário compilado do estágio anterior.
 COPY --from=builder /quepasa .
 
-# Copia as migrações da base de dados a partir da pasta /docker.
-COPY docker/postgres/migrations ./migrations
+# Copia as migrações da base de dados a partir da pasta /src/migrations.
+# ESTA É A LINHA QUE FOI CORRIGIDA.
+COPY src/migrations ./migrations
 
 # Expõe a porta.
 EXPOSE 31000
