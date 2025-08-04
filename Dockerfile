@@ -11,22 +11,25 @@ RUN apt-get update && apt-get install -y git gcc libc-dev ffmpeg
 # 2. Define o diretório de trabalho para a aplicação.
 WORKDIR /app
 
-# 3. Copia TODO o código-fonte da sua pasta local /src para dentro do contêiner.
-#    Isto garante que a pasta /migrations será copiada para /app/migrations.
-COPY src/ ./
+# 3. Copia os ficheiros de módulo a partir da pasta /src.
+#    ESTA É A CORREÇÃO PARA O ERRO "go.mod not found".
+COPY src/go.mod src/go.sum ./
 
 # 4. Baixa as dependências do Go.
 RUN go mod download
 
-# 5. Ativa o CGO para que a compilação funcione.
+# 5. Copia o resto do código-fonte para dentro do contêiner.
+COPY src/ ./
+
+# 6. Ativa o CGO para que a compilação funcione.
 ENV CGO_ENABLED=1
 
-# 6. Compila a aplicação como um binário estático para maior compatibilidade.
+# 7. Compila a aplicação como um binário estático para maior compatibilidade.
 RUN go build -ldflags '-w -s -extldflags "-static"' -tags netgo,osuser -o /app/quepasa main.go
 
-# 7. Expõe a porta da aplicação.
+# 8. Expõe a porta da aplicação.
 EXPOSE 31000
 
-# 8. Define o comando para iniciar a aplicação.
+# 9. Define o comando para iniciar a aplicação.
 #    Como o executável e as migrações estão ambos dentro de /app, tudo deve ser encontrado.
 ENTRYPOINT ["/app/quepasa"]
