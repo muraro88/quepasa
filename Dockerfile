@@ -1,50 +1,32 @@
 # =================================================================
-# Estágio 1: Builder
-# Este Dockerfile deve estar localizado na RAIZ do projeto.
+# Dockerfile Final e Simplificado (Estágio Único)
+# Este ficheiro cria uma imagem maior, mas é mais robusto para resolver o problema.
+# Ele deve estar localizado na RAIZ do seu projeto.
 # =================================================================
-FROM golang:1.23-bullseye AS builder
+FROM golang:1.23-bullseye
 
-# Instala as ferramentas de build necessárias
-RUN apt-get update && apt-get install -y git gcc libc-dev
+# 1. Instala TODAS as ferramentas necessárias (build e execução) de uma só vez.
+RUN apt-get update && apt-get install -y git gcc libc-dev ffmpeg
 
+# 2. Define o diretório de trabalho para a aplicação.
 WORKDIR /app
 
-# Copia todo o código-fonte da pasta /src primeiro.
+# 3. Copia TODO o código-fonte da sua pasta local /src para dentro do contêiner.
+#    Isto garante que a pasta /migrations será copiada para /app/migrations.
 COPY src/ ./
 
-# COMANDO DE DEPURAÇÃO: Lista todos os ficheiros e pastas dentro de /app.
-# O resultado deste comando aparecerá no "Build Log".
-RUN ls -R /app
-
-# Agora que todo o código está presente, podemos baixar as dependências.
+# 4. Baixa as dependências do Go.
 RUN go mod download
 
-# Ativa o CGO para compilar a dependência do SQLite.
+# 5. Ativa o CGO para que a compilação funcione.
 ENV CGO_ENABLED=1
 
-# Compila a aplicação como um binário estático.
-RUN go build -ldflags '-w -s -extldflags "-static"' -tags netgo,osuser -o /quepasa main.go
+# 6. Compila a aplicação como um binário estático para maior compatibilidade.
+RUN go build -ldflags '-w -s -extldflags "-static"' -tags netgo,osuser -o /app/quepasa main.go
 
-# =================================================================
-# Estágio 2: Imagem Final
-# =================================================================
-FROM alpine:3.18
-
-# Instala as dependências de execução (ffmpeg).
-RUN apk add --no-cache ffmpeg
-
-# Define o diretório de trabalho final.
-WORKDIR /app
-
-# Copia o binário compilado do estágio anterior para o diretório de trabalho.
-COPY --from=builder /quepasa .
-
-# Copia a pasta de migrações usando um caminho de destino absoluto.
-# ESTA É A CORREÇÃO FINAL E MAIS ROBUSTA.
-COPY --from=builder /app/migrations /app/migrations/
-
-# Expõe a porta.
+# 7. Expõe a porta da aplicação.
 EXPOSE 31000
 
-# Define o comando de arranque.
+# 8. Define o comando para iniciar a aplicação.
+#    Como o executável e as migrações estão ambos dentro de /app, tudo deve ser encontrado.
 ENTRYPOINT ["/app/quepasa"]
