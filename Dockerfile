@@ -19,8 +19,9 @@ RUN go mod download
 # Ativa o CGO para compilar a dependência do SQLite.
 ENV CGO_ENABLED=1
 
-# Compila a aplicação.
-RUN go build -ldflags="-w -s" -o /quepasa main.go
+# Compila a aplicação como um binário estático.
+# Isto resolve o erro "missing dynamic library" na imagem Alpine final.
+RUN go build -ldflags '-w -s -extldflags "-static"' -tags netgo,osuser -o /quepasa main.go
 
 # =================================================================
 # Estágio 2: Imagem Final
