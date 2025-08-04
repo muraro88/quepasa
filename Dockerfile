@@ -1,52 +1,46 @@
 # =================================================================
 # Estágio 1: Builder
+# Este Dockerfile deve estar localizado na RAIZ do projeto.
 # =================================================================
 FROM golang:1.23-bullseye AS builder
 
 # Instala as ferramentas de build necessárias
 RUN apt-get update && apt-get install -y git gcc libc-dev
 
-# Define o diretório de trabalho
 WORKDIR /app
 
-# 1) Copia apenas go.mod e go.sum para aproveitar cache de dependências
-COPY go.mod go.sum ./
+# Copia todo o código-fonte da pasta /src primeiro.
+COPY src/ ./
 
-# 2) Baixa as dependências
+# Agora que todo o código está presente, podemos baixar as dependências.
 RUN go mod download
 
-# 3) Copia TODO o restante do código (incluindo migrations/)
-COPY . ./
-
-# Ativa o CGO para compilar a dependência do SQLite
+# Ativa o CGO para compilar a dependência do SQLite.
 ENV CGO_ENABLED=1
 
-# 4) Compila a aplicação como um binário estático
-RUN go build \
-    -ldflags '-w -s -extldflags "-static"' \
-    -tags netgo,osuser \
-    -o /quepasa \
-    main.go
+# Compila a aplicação como um binário estático.
+RUN go build -ldflags '-w -s -extldflags "-static"' -tags netgo,osuser -o /quepasa main.go
 
 # =================================================================
 # Estágio 2: Imagem Final
 # =================================================================
 FROM alpine:3.18
 
-# Instala as dependências de execução (ffmpeg)
+# Instala as dependências de execução (ffmpeg).
 RUN apk add --no-cache ffmpeg
 
-# Define o diretório de trabalho final
+# Define o diretório de trabalho final.
 WORKDIR /app
 
-# Copia o binário compilado
-COPY --from=builder /quepasa ./
+# Copia o binário compilado do estágio anterior para o diretório de trabalho.
+COPY --from=builder /quepasa .
 
-# Copia a pasta de migrações
-COPY --from=builder /app/migrations ./migrations
+# Copia a pasta de migrações usando um caminho de destino absoluto.
+# ESTA É A CORREÇÃO FINAL E MAIS ROBUSTA.
+COPY --from=builder /app/migrations /app/migrations/
 
-# Expõe a porta da aplicação
+# Expõe a porta.
 EXPOSE 31000
 
-# Comando de entrada
+# Define o comando de arranque.
 ENTRYPOINT ["/app/quepasa"]
