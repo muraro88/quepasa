@@ -4,11 +4,11 @@
 # - Instala dependências e compila o binário Go.
 # - Nomeamos este estágio como "builder".
 # =================================================================
-FROM golang:1.22-alpine AS builder
+FROM golang:1.22-bullseye AS builder
 
-# Instala as ferramentas de build necessárias.
-# 'git' e 'gcc' são necessários para compilar dependências com CGO.
-RUN apk add --no-cache git gcc libc-dev
+# Instala as ferramentas de build necessárias usando apt-get.
+# Esta imagem base é mais robusta e garante que o gcc seja encontrado.
+RUN apt-get update && apt-get install -y git gcc libc-dev
 
 # Define o diretório de trabalho dentro do contêiner.
 WORKDIR /app
