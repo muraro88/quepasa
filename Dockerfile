@@ -10,7 +10,6 @@ RUN apt-get update && apt-get install -y git gcc libc-dev
 WORKDIR /app
 
 # Copia todo o código-fonte da pasta /src primeiro.
-# Isto resolve o erro de "no such file or directory" para o submódulo /api.
 COPY src/ ./
 
 # Agora que todo o código está presente, podemos baixar as dependências.
@@ -20,7 +19,6 @@ RUN go mod download
 ENV CGO_ENABLED=1
 
 # Compila a aplicação como um binário estático.
-# Isto resolve o erro "missing dynamic library" na imagem Alpine final.
 RUN go build -ldflags '-w -s -extldflags "-static"' -tags netgo,osuser -o /quepasa main.go
 
 # =================================================================
@@ -36,8 +34,9 @@ WORKDIR /app
 # Copia o binário compilado do estágio anterior.
 COPY --from=builder /quepasa .
 
-# Copia as migrações da base de dados a partir da pasta /src/migrations.
-COPY src/migrations ./migrations
+# Copia as migrações da base de dados A PARTIR DO ESTÁGIO BUILDER.
+# ESTA É A LINHA QUE FOI CORRIGIDA.
+COPY --from=builder /app/migrations ./migrations
 
 # Expõe a porta.
 EXPOSE 31000
