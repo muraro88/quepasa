@@ -2,7 +2,7 @@
 # Estágio 1: Builder
 # Este Dockerfile deve estar localizado na RAIZ do projeto.
 # =================================================================
-FROM golang:1.22-bullseye AS builder
+FROM golang:1.23-bullseye AS builder
 
 # Instala as ferramentas de build necessárias
 RUN apt-get update && apt-get install -y git gcc libc-dev
