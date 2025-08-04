@@ -12,6 +12,10 @@ WORKDIR /app
 # Copia todo o código-fonte da pasta /src primeiro.
 COPY src/ ./
 
+# COMANDO DE DEPURAÇÃO: Lista todos os ficheiros e pastas dentro de /app.
+# O resultado deste comando aparecerá no "Build Log".
+RUN ls -R /app
+
 # Agora que todo o código está presente, podemos baixar as dependências.
 RUN go mod download
 
