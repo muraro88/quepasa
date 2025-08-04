@@ -13,16 +13,23 @@ RUN apk add --no-cache git gcc libc-dev
 # Define o diretório de trabalho dentro do contêiner.
 WORKDIR /app
 
-# Copia o código-fonte da sua pasta local 'src' para o contêiner.
+# Copia os arquivos de módulo primeiro para aproveitar o cache do Docker.
+COPY ./src/go.mod ./src/go.sum ./
+
+# Baixa as dependências do projeto antes de copiar o resto do código.
+# Isso melhora o cache e pode forçar a invalidação de camadas antigas.
+RUN go mod download
+
+# Copia o resto do código-fonte.
 COPY ./src .
 
 # Define a variável de ambiente CGO_ENABLED para este estágio de build.
 # Esta é uma forma mais explícita de corrigir o erro "go-sqlite3 requires cgo".
 ENV CGO_ENABLED=1
 
-# Compila a aplicação Go.
-# Isso cria um executável estático chamado 'quepasa'.
-RUN go build -o /quepasa
+# Compila a aplicação Go de forma explícita e otimizada.
+# O -ldflags "-w -s" remove informações de debug e reduz o tamanho do binário.
+RUN go build -ldflags="-w -s" -o /quepasa main.go
 
 # =================================================================
 # Estágio 2: Imagem Final
