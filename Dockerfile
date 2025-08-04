@@ -3,21 +3,20 @@
 # =================================================================
 FROM golang:1.23-bullseye AS builder
 
-# Instala as ferramentas de build necessárias
 RUN apt-get update && apt-get install -y git gcc libc-dev
-
 WORKDIR /app
 
-# Copia TODO o projeto (inclui migrations, main.go, etc)
-COPY . ./
+# 1) copia apenas go.mod e go.sum para instalar deps
+COPY go.mod go.sum ./
 
-# Baixa dependências
+# 2) baixa as dependências (usa cache se não mudar go.mod)
 RUN go mod download
 
-# Ativa o CGO para compilar a dependência do SQLite
-ENV CGO_ENABLED=1
+# 3) agora copia TODO o restante do código, incluindo migrations/
+COPY . ./
 
-# Compila a aplicação como um binário estático
+# ativa CGO (para SQLite) e compila
+ENV CGO_ENABLED=1
 RUN go build -ldflags '-w -s -extldflags "-static"' -tags netgo,osuser -o /quepasa main.go
 
 # =================================================================
@@ -25,19 +24,11 @@ RUN go build -ldflags '-w -s -extldflags "-static"' -tags netgo,osuser -o /quepa
 # =================================================================
 FROM alpine:3.18
 
-# Instala as dependências de execução (ffmpeg)
 RUN apk add --no-cache ffmpeg
-
 WORKDIR /app
 
-# Copia o binário compilado
 COPY --from=builder /quepasa ./
-
-# Copia a pasta de migrações
 COPY --from=builder /app/migrations ./migrations
 
-# Porta da aplicação
 EXPOSE 31000
-
-# Comando de entrada
 ENTRYPOINT ["/app/quepasa"]
