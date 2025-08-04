@@ -6,16 +6,16 @@ FROM golang:1.23-bullseye AS builder
 # Instala as ferramentas de build necessárias
 RUN apt-get update && apt-get install -y git gcc libc-dev
 
-# Define o WORKDIR
+# Define o diretório de trabalho
 WORKDIR /app
 
-# 1) Copia apenas go.mod e go.sum (cache do 'go mod download')
+# 1) Copia apenas go.mod e go.sum para aproveitar cache de dependências
 COPY go.mod go.sum ./
 
-# 2) Baixa dependências
+# 2) Baixa as dependências
 RUN go mod download
 
-# 3) Copia o restante do código (inclui migrations/)
+# 3) Copia TODO o restante do código (incluindo migrations/)
 COPY . ./
 
 # Ativa o CGO para compilar a dependência do SQLite
@@ -36,6 +36,7 @@ FROM alpine:3.18
 # Instala as dependências de execução (ffmpeg)
 RUN apk add --no-cache ffmpeg
 
+# Define o diretório de trabalho final
 WORKDIR /app
 
 # Copia o binário compilado
